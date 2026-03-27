@@ -430,6 +430,9 @@ function App() {
         throw currentError;
       }
 
+      await syncCurrentAccount();
+      setShouldInitialRefresh(true);
+
       setQuickLoginState({
         isOpen: true,
         phase: 'success',
@@ -472,13 +475,12 @@ function App() {
 
       const nextAccounts = useAccountStore.getState().accounts;
       const addedNewAccount = nextAccounts.some((account) => !previousAccountIds.has(account.id));
-      if (addedNewAccount) {
-        showToast('已导入当前登录账号，但未自动切换', 'success');
-        return true;
-      }
 
       await syncCurrentAccount();
       setShouldInitialRefresh(true);
+      if (addedNewAccount) {
+        showToast('已导入并同步当前登录账号', 'success');
+      }
       return true;
     } catch {
       setError('未找到当前 Codex 配置文件，请先完成 Codex 登录。');
@@ -548,7 +550,7 @@ function App() {
     const options: AddAccountOptions = { allowMissingIdentity: true };
     try {
       await addAccount(authJson, alias, options);
-      if (source === 'auto') {
+      if (source !== 'manual') {
         await syncCurrentAccount();
         setShouldInitialRefresh(true);
       }

@@ -147,11 +147,11 @@ struct BackgroundUsageRefreshedPayload {
 #[tauri::command]
 fn load_accounts_store() -> Result<String, String> {
     let path = get_accounts_store_path()?;
-    
+
     if !path.exists() {
         return Err("Store file not found".to_string());
     }
-    
+
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
@@ -307,8 +307,14 @@ fn build_tray_account_title(account: &TrayStoredAccount) -> String {
 
 fn build_tray_account_detail(account: &TrayStoredAccount) -> String {
     let usage = account.usage_info.as_ref();
-    let five_hour = format_tray_percent(usage.and_then(|current| current.five_hour_limit.as_ref()), "5H");
-    let weekly = format_tray_percent(usage.and_then(|current| current.weekly_limit.as_ref()), "周");
+    let five_hour = format_tray_percent(
+        usage.and_then(|current| current.five_hour_limit.as_ref()),
+        "5H",
+    );
+    let weekly = format_tray_percent(
+        usage.and_then(|current| current.weekly_limit.as_ref()),
+        "周",
+    );
     let code_review = format_tray_percent(
         usage.and_then(|current| current.code_review_limit.as_ref()),
         "审查",
@@ -335,7 +341,10 @@ fn hide_to_tray_internal<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     window.hide().map_err(|e| e.to_string())
 }
 
-fn switch_account_from_tray<R: Runtime>(app: &AppHandle<R>, account_id: &str) -> Result<(), String> {
+fn switch_account_from_tray<R: Runtime>(
+    app: &AppHandle<R>,
+    account_id: &str,
+) -> Result<(), String> {
     let auth_json = read_account_auth(account_id.to_string())?;
     write_codex_auth(auth_json)?;
 
@@ -383,9 +392,14 @@ fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, String> {
     menu.append(&separator).map_err(|e| e.to_string())?;
 
     if store.accounts.is_empty() {
-        let empty_item =
-            MenuItem::with_id(app, "tray-empty", "暂无账号，请先在主界面导入", false, None::<&str>)
-                .map_err(|e| e.to_string())?;
+        let empty_item = MenuItem::with_id(
+            app,
+            "tray-empty",
+            "暂无账号，请先在主界面导入",
+            false,
+            None::<&str>,
+        )
+        .map_err(|e| e.to_string())?;
         menu.append(&empty_item).map_err(|e| e.to_string())?;
     } else {
         for account in &store.accounts {
@@ -410,7 +424,8 @@ fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, String> {
             .map_err(|e| e.to_string())?;
             menu.append(&detail_item).map_err(|e| e.to_string())?;
 
-            let account_separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+            let account_separator =
+                PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
             menu.append(&account_separator).map_err(|e| e.to_string())?;
         }
     }
@@ -430,7 +445,8 @@ fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, String> {
         None::<&str>,
     )
     .map_err(|e| e.to_string())?;
-    menu.append(&close_behavior_item).map_err(|e| e.to_string())?;
+    menu.append(&close_behavior_item)
+        .map_err(|e| e.to_string())?;
 
     let exit_separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     menu.append(&exit_separator).map_err(|e| e.to_string())?;
@@ -581,12 +597,12 @@ fn start_background_auto_refresh<R: Runtime>(app: &AppHandle<R>) {
 #[tauri::command]
 fn write_codex_auth(auth_config: String) -> Result<(), String> {
     let path = get_codex_auth_path()?;
-    
+
     // 确保.codex目录存在
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    
+
     fs::write(&path, auth_config).map_err(|e| e.to_string())
 }
 
@@ -594,11 +610,11 @@ fn write_codex_auth(auth_config: String) -> Result<(), String> {
 #[tauri::command]
 fn read_codex_auth() -> Result<String, String> {
     let path = get_codex_auth_path()?;
-    
+
     if !path.exists() {
         return Err("Codex auth.json not found".to_string());
     }
-    
+
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
@@ -692,9 +708,7 @@ fn get_auth_snapshot(path: &Path) -> Result<AuthSnapshot, String> {
         });
     }
 
-    let modified = fs::metadata(path)
-        .and_then(|meta| meta.modified())
-        .ok();
+    let modified = fs::metadata(path).and_then(|meta| meta.modified()).ok();
     let content = fs::read_to_string(path).ok();
 
     Ok(AuthSnapshot { modified, content })
@@ -713,7 +727,13 @@ fn validate_login_auth_json(auth_json: &str) -> Result<(), String> {
         .tokens
         .ok_or_else(|| "auth.json 缺少 tokens 字段".to_string())?;
 
-    if tokens.id_token.as_deref().unwrap_or_default().trim().is_empty() {
+    if tokens
+        .id_token
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+    {
         return Err("auth.json 缺少 id_token".to_string());
     }
 
@@ -723,10 +743,19 @@ fn validate_login_auth_json(auth_json: &str) -> Result<(), String> {
 fn normalize_codex_command_input(codex_path: Option<String>) -> String {
     let value = codex_path.unwrap_or_default();
     let trimmed = value.trim();
-    if trimmed.is_empty() {
+    let normalized = match trimmed.as_bytes() {
+        [first, middle @ .., last]
+            if (*first == b'"' && *last == b'"') || (*first == b'\'' && *last == b'\'') =>
+        {
+            std::str::from_utf8(middle).unwrap_or(trimmed).trim()
+        }
+        _ => trimmed,
+    };
+
+    if normalized.is_empty() {
         "codex".to_string()
     } else {
-        trimmed.to_string()
+        normalized.to_string()
     }
 }
 
@@ -736,7 +765,9 @@ fn resolve_command_candidates(command: &str) -> Vec<String> {
         return vec![command.to_string()];
     }
 
-    let output = std::process::Command::new("where.exe").arg(command).output();
+    let output = std::process::Command::new("where.exe")
+        .arg(command)
+        .output();
     let Ok(output) = output else {
         return vec![command.to_string()];
     };
@@ -910,15 +941,16 @@ async fn start_codex_login(
     let invocation = resolve_login_invocation(codex_path)?;
     let timeout = Duration::from_secs(normalize_login_timeout_seconds(timeout_seconds));
 
-    let mut child = build_login_command(&invocation)
-        .spawn()
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                format!("未找到 Codex CLI，请检查设置中的命令路径：{}", invocation.program)
-            } else {
-                format!("启动 Codex 登录失败：{}", error)
-            }
-        })?;
+    let mut child = build_login_command(&invocation).spawn().map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            format!(
+                "未找到 Codex CLI，请检查设置中的命令路径：{}",
+                invocation.program
+            )
+        } else {
+            format!("启动 Codex 登录失败：{}", error)
+        }
+    })?;
 
     let started_at = Instant::now();
     loop {
@@ -1083,25 +1115,35 @@ fn save_usage_bindings_unlocked(store: &UsageBindingsStore) -> Result<(), String
 }
 
 fn update_usage_bindings(account_id: &str, binding: SessionBinding) -> Result<(), String> {
-    let _guard = USAGE_BINDINGS_LOCK.lock().map_err(|_| "Bindings lock poisoned".to_string())?;
+    let _guard = USAGE_BINDINGS_LOCK
+        .lock()
+        .map_err(|_| "Bindings lock poisoned".to_string())?;
     let mut store = load_usage_bindings_unlocked()?;
     for (existing_account, existing_entries) in store.bindings.iter() {
         if existing_account == account_id {
             continue;
         }
-        if existing_entries.iter().any(|b| {
-            b.session_id == binding.session_id || b.file_path == binding.file_path
-        }) {
+        if existing_entries
+            .iter()
+            .any(|b| b.session_id == binding.session_id || b.file_path == binding.file_path)
+        {
             return Err("Session file already bound to another account".to_string());
         }
     }
     let entries = store.bindings.entry(account_id.to_string()).or_default();
-    if let Some(existing) = entries.iter_mut().find(|b| b.session_id == binding.session_id) {
+    if let Some(existing) = entries
+        .iter_mut()
+        .find(|b| b.session_id == binding.session_id)
+    {
         *existing = binding;
     } else {
         entries.push(binding);
     }
-    entries.sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.bound_at.cmp(&b.bound_at)));
+    entries.sort_by(|a, b| {
+        a.created_at
+            .cmp(&b.created_at)
+            .then(a.bound_at.cmp(&b.bound_at))
+    });
     if entries.len() > 200 {
         let start = entries.len().saturating_sub(200);
         entries.drain(0..start);
@@ -1110,7 +1152,9 @@ fn update_usage_bindings(account_id: &str, binding: SessionBinding) -> Result<()
 }
 
 fn get_latest_bound_session_path(account_id: &str) -> Result<PathBuf, String> {
-    let _guard = USAGE_BINDINGS_LOCK.lock().map_err(|_| "Bindings lock poisoned".to_string())?;
+    let _guard = USAGE_BINDINGS_LOCK
+        .lock()
+        .map_err(|_| "Bindings lock poisoned".to_string())?;
     let store = load_usage_bindings_unlocked()?;
     let entries = store
         .bindings
@@ -1223,12 +1267,19 @@ async fn fetch_wham_account_metadata(
         .map_err(|e| e.to_string())?;
 
     if !response.status().is_success() {
-        return Err(format!("wham/accounts/check 请求失败: {}", response.status()));
+        return Err(format!(
+            "wham/accounts/check 请求失败: {}",
+            response.status()
+        ));
     }
 
     let body = response.text().await.map_err(|e| e.to_string())?;
-    let value: WhamAccountsCheckResponse = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-    let matched = value.accounts.into_iter().find(|account| account.id == chatgpt_account_id);
+    let value: WhamAccountsCheckResponse =
+        serde_json::from_str(&body).map_err(|e| e.to_string())?;
+    let matched = value
+        .accounts
+        .into_iter()
+        .find(|account| account.id == chatgpt_account_id);
 
     Ok(matched.map(|account| WhamAccountMetadata {
         workspace_name: match account.structure.as_deref() {
@@ -1354,31 +1405,31 @@ fn start_session_watcher() {
                 Err(_) => continue,
             };
 
-        if !matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
-            continue;
-        }
+            if !matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
+                continue;
+            }
 
-        for path in event.paths {
-            if path.extension().map_or(false, |ext| ext == "jsonl") {
-                if let Err(err) = bind_session_file_to_current_auth(&path) {
-                    log::debug!("Bind session skipped: {}", err);
+            for path in event.paths {
+                if path.extension().map_or(false, |ext| ext == "jsonl") {
+                    if let Err(err) = bind_session_file_to_current_auth(&path) {
+                        log::debug!("Bind session skipped: {}", err);
+                    }
                 }
             }
         }
-    }
     });
 }
 
 /// 查找最新的 session 日志文件
 fn find_latest_session_file() -> Result<PathBuf, String> {
     let sessions_dir = get_codex_sessions_dir()?;
-    
+
     if !sessions_dir.exists() {
         return Err("Sessions directory not found".to_string());
     }
-    
+
     let mut all_files: Vec<PathBuf> = Vec::new();
-    
+
     // 递归遍历 sessions 目录查找所有 .jsonl 文件
     fn collect_jsonl_files(dir: &PathBuf, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
         if dir.is_dir() {
@@ -1394,49 +1445,48 @@ fn find_latest_session_file() -> Result<PathBuf, String> {
         }
         Ok(())
     }
-    
+
     collect_jsonl_files(&sessions_dir, &mut all_files)
         .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
-    
+
     if all_files.is_empty() {
         return Err("No session files found".to_string());
     }
-    
+
     // 按修改时间排序，获取最新的
     all_files.sort_by(|a, b| {
         let a_time = fs::metadata(a).and_then(|m| m.modified()).ok();
         let b_time = fs::metadata(b).and_then(|m| m.modified()).ok();
         b_time.cmp(&a_time)
     });
-    
+
     Ok(all_files[0].clone())
 }
 
 /// 从 JSONL 文件中解析最新的 rate_limits 信息
 fn parse_rate_limits_from_file(file_path: &PathBuf) -> Result<UsageData, String> {
-    let file = fs::File::open(file_path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
-    
+    let file = fs::File::open(file_path).map_err(|e| format!("Failed to open file: {}", e))?;
+
     let reader = BufReader::new(file);
     let mut latest_rate_limits: Option<RateLimits> = None;
-    
+
     // 读取所有行，找到最后一个有效的 rate_limits
     for line in reader.lines() {
         let line = match line {
             Ok(l) => l,
             Err(_) => continue,
         };
-        
+
         if line.is_empty() {
             continue;
         }
-        
+
         // 尝试解析 JSON
         let event: EventMsg = match serde_json::from_str(&line) {
             Ok(e) => e,
             Err(_) => continue,
         };
-        
+
         // 检查是否是 token_count 类型的事件
         if event.msg_type == "event_msg" || event.msg_type == "token_count" {
             if let Some(payload) = event.payload {
@@ -1449,14 +1499,16 @@ fn parse_rate_limits_from_file(file_path: &PathBuf) -> Result<UsageData, String>
             }
         }
     }
-    
-    let rate_limits = latest_rate_limits
-        .ok_or_else(|| "No rate limits found in session file".to_string())?;
-    
+
+    let rate_limits =
+        latest_rate_limits.ok_or_else(|| "No rate limits found in session file".to_string())?;
+
     // 转换为 UsageData
-    let primary = rate_limits.primary
+    let primary = rate_limits
+        .primary
         .ok_or_else(|| "No primary rate limit found".to_string())?;
-    let secondary = rate_limits.secondary
+    let secondary = rate_limits
+        .secondary
         .ok_or_else(|| "No secondary rate limit found".to_string())?;
 
     let primary_used = validate_used_percent(primary.used_percent)?;
@@ -1613,7 +1665,8 @@ fn parse_rate_limit_entry(value: &serde_json::Value) -> Result<ParsedLimit, Stri
         return Err("Missing usage fields in rate_limit entry".to_string());
     };
 
-    let raw_reset = extract_reset_time_ms(value).ok_or_else(|| "Missing reset timestamp".to_string())?;
+    let raw_reset =
+        extract_reset_time_ms(value).ok_or_else(|| "Missing reset timestamp".to_string())?;
     let reset_time_ms = normalize_unix_timestamp_ms(raw_reset)?;
 
     let window_minutes = value
@@ -1680,10 +1733,9 @@ fn parse_rate_limits(value: &serde_json::Value) -> Result<(ParsedLimit, ParsedLi
         return Ok((five, weekly));
     }
 
-    if let (Some(primary), Some(secondary)) = (
-        value.get("primary_window"),
-        value.get("secondary_window"),
-    ) {
+    if let (Some(primary), Some(secondary)) =
+        (value.get("primary_window"), value.get("secondary_window"))
+    {
         let five = parse_rate_limit_entry(primary)?;
         let weekly = parse_rate_limit_entry(secondary)?;
         return Ok((five, weekly));
@@ -1730,19 +1782,22 @@ fn parse_optional_rate_limit(value: &serde_json::Value) -> Option<ParsedLimit> {
     }
 
     if let Some(entries) = value.get("limits").and_then(|v| v.as_array()) {
-        return entries.first().and_then(|entry| parse_rate_limit_entry(entry).ok());
+        return entries
+            .first()
+            .and_then(|entry| parse_rate_limit_entry(entry).ok());
     }
 
     if let Some(entries) = value.as_array() {
-        return entries.first().and_then(|entry| parse_rate_limit_entry(entry).ok());
+        return entries
+            .first()
+            .and_then(|entry| parse_rate_limit_entry(entry).ok());
     }
 
     parse_rate_limit_entry(value).ok()
 }
 
 fn parse_session_meta(file_path: &PathBuf) -> Result<(String, String), String> {
-    let file = fs::File::open(file_path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let file = fs::File::open(file_path).map_err(|e| format!("Failed to open file: {}", e))?;
     let reader = BufReader::new(file);
 
     for line in reader.lines() {
@@ -1896,7 +1951,10 @@ async fn get_codex_wham_usage(
     let send_request = || {
         client
             .get("https://chatgpt.com/backend-api/wham/usage")
-            .header("Authorization", format!("Bearer {}", access_token.as_deref().unwrap()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", access_token.as_deref().unwrap()),
+            )
             .header("Accept", "application/json")
             .header("ChatGPT-Account-Id", chatgpt_account_id.as_deref().unwrap())
             .send()
@@ -1969,10 +2027,7 @@ async fn get_codex_wham_usage(
         }
     }
 
-    let rate_limit_value = match value
-        .get("rate_limit")
-        .or_else(|| value.get("rate_limits"))
-    {
+    let rate_limit_value = match value.get("rate_limit").or_else(|| value.get("rate_limits")) {
         Some(value) => value,
         None => {
             return Ok(UsageResult {
@@ -2043,13 +2098,13 @@ fn get_usage_from_file(file_path: String) -> Result<UsageData, String> {
 #[tauri::command]
 fn get_account_usage(account_email: String) -> Result<UsageData, String> {
     let sessions_dir = get_codex_sessions_dir()?;
-    
+
     if !sessions_dir.exists() {
         return Err("Sessions directory not found".to_string());
     }
-    
+
     let mut all_files: Vec<PathBuf> = Vec::new();
-    
+
     fn collect_jsonl_files(dir: &PathBuf, files: &mut Vec<PathBuf>) -> std::io::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
@@ -2064,34 +2119,35 @@ fn get_account_usage(account_email: String) -> Result<UsageData, String> {
         }
         Ok(())
     }
-    
+
     collect_jsonl_files(&sessions_dir, &mut all_files)
         .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
-    
+
     // 按修改时间排序（最新的在前）
     all_files.sort_by(|a, b| {
         let a_time = fs::metadata(a).and_then(|m| m.modified()).ok();
         let b_time = fs::metadata(b).and_then(|m| m.modified()).ok();
         b_time.cmp(&a_time)
     });
-    
+
     // 遍历文件，查找包含指定账号的 rate_limits
-    for file_path in all_files.iter().take(20) { // 只检查最近20个文件
+    for file_path in all_files.iter().take(20) {
+        // 只检查最近20个文件
         let file = match fs::File::open(file_path) {
             Ok(f) => f,
             Err(_) => continue,
         };
-        
+
         let reader = BufReader::new(file);
         let mut found_account = false;
         let mut latest_rate_limits: Option<RateLimits> = None;
-        
+
         for line in reader.lines() {
             let line = match line {
                 Ok(l) => l,
                 Err(_) => continue,
             };
-            
+
             if line.is_empty() {
                 continue;
             }
@@ -2117,7 +2173,9 @@ fn get_account_usage(account_email: String) -> Result<UsageData, String> {
                 if event.msg_type == "event_msg" || event.msg_type == "token_count" {
                     if let Some(payload) = event.payload {
                         if let Some(rate_limits) = payload.get("rate_limits") {
-                            if let Ok(rl) = serde_json::from_value::<RateLimits>(rate_limits.clone()) {
+                            if let Ok(rl) =
+                                serde_json::from_value::<RateLimits>(rate_limits.clone())
+                            {
                                 latest_rate_limits = Some(rl);
                             }
                         }
@@ -2125,11 +2183,13 @@ fn get_account_usage(account_email: String) -> Result<UsageData, String> {
                 }
             }
         }
-        
+
         // 如果找到了账号且有 rate_limits，返回结果
         if found_account {
             if let Some(rate_limits) = latest_rate_limits {
-                if let (Some(primary), Some(secondary)) = (rate_limits.primary, rate_limits.secondary) {
+                if let (Some(primary), Some(secondary)) =
+                    (rate_limits.primary, rate_limits.secondary)
+                {
                     let primary_used = validate_used_percent(primary.used_percent)?;
                     let secondary_used = validate_used_percent(secondary.used_percent)?;
                     let five_hour_reset_ms = normalize_unix_timestamp_ms(primary.resets_at)?;
@@ -2155,8 +2215,11 @@ fn get_account_usage(account_email: String) -> Result<UsageData, String> {
             }
         }
     }
-    
-    Err(format!("No usage data found for account: {}", account_email))
+
+    Err(format!(
+        "No usage data found for account: {}",
+        account_email
+    ))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -2235,9 +2298,31 @@ mod tests {
     }
 
     #[test]
+    fn surrounding_quotes_are_removed_from_codex_path() {
+        assert_eq!(
+            normalize_codex_command_input(Some(
+                "\"C:\\Program Files\\OpenAI\\codex.exe\"".to_string(),
+            )),
+            r"C:\Program Files\OpenAI\codex.exe"
+        );
+        assert_eq!(
+            normalize_codex_command_input(Some(
+                "'C:\\Program Files\\OpenAI\\codex.exe'".to_string(),
+            )),
+            r"C:\Program Files\OpenAI\codex.exe"
+        );
+    }
+
+    #[test]
     fn timeout_seconds_have_reasonable_floor() {
-        assert_eq!(normalize_login_timeout_seconds(None), DEFAULT_LOGIN_TIMEOUT_SECONDS);
-        assert_eq!(normalize_login_timeout_seconds(Some(0)), DEFAULT_LOGIN_TIMEOUT_SECONDS);
+        assert_eq!(
+            normalize_login_timeout_seconds(None),
+            DEFAULT_LOGIN_TIMEOUT_SECONDS
+        );
+        assert_eq!(
+            normalize_login_timeout_seconds(Some(0)),
+            DEFAULT_LOGIN_TIMEOUT_SECONDS
+        );
         assert_eq!(normalize_login_timeout_seconds(Some(5)), 30);
         assert_eq!(normalize_login_timeout_seconds(Some(120)), 120);
     }
@@ -2270,10 +2355,8 @@ mod tests {
 
     #[test]
     fn direct_invocation_is_used_for_explicit_exe_path() {
-        let invocation = resolve_login_invocation(Some(
-            r"C:\tools\codex.exe".to_string(),
-        ))
-        .expect("should build invocation");
+        let invocation = resolve_login_invocation(Some(r"C:\tools\codex.exe".to_string()))
+            .expect("should build invocation");
 
         assert_eq!(invocation.program, r"C:\tools\codex.exe");
         assert_eq!(invocation.args, vec!["login".to_string()]);
@@ -2282,10 +2365,8 @@ mod tests {
 
     #[test]
     fn powershell_invocation_is_used_for_ps1_path() {
-        let invocation = resolve_login_invocation(Some(
-            r"C:\tools\codex.ps1".to_string(),
-        ))
-        .expect("should build invocation");
+        let invocation = resolve_login_invocation(Some(r"C:\tools\codex.ps1".to_string()))
+            .expect("should build invocation");
 
         assert_eq!(invocation.program, "powershell");
         assert_eq!(invocation.mode, LoginCommandMode::PowerShell);
@@ -2331,7 +2412,10 @@ mod tests {
             updated_at: "0".to_string(),
         };
 
-        assert_eq!(build_tray_account_title(&account), "test@example.com / 团队空间");
+        assert_eq!(
+            build_tray_account_title(&account),
+            "test@example.com / 团队空间"
+        );
         assert_eq!(
             build_tray_account_detail(&account),
             "5H 46%  周 84%  审查 --  到期 2026-04-26"
